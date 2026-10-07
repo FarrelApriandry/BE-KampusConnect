@@ -13,23 +13,33 @@ export async function getPublicUser(id: string) {
   return user;
 }
 
-/** Trust sederhana Sprint 1: avg rating + completed count + positive rate. */
+/** FR-11: indikator reputasi seller — avg rating, transaksi selesai, positive rate, status kampus. */
 export async function getSellerReputation(userId: string) {
-  await getPublicUser(userId);
+  const user = await getPublicUser(userId);
   const rows = await sql`
     select count(*)::int as completed,
            coalesce(avg(r.rating), 0)::float as avg_rating,
-           coalesce(sum(case when r.rating >= 4 then 1 else 0 end), 0)::int as positive
+           coalesce(sum(case when r.rating >= 4 then 1 else 0 end), 0)::int as positive,
+           coalesce(sum(case when r.rating < 3 then 1 else 0 end), 0)::int as negative
     from transactions t
     left join reviews r on r.transaction_id = t.id
     where t.seller_id = ${userId} and t.status = 'COMPLETED'`;
-  const r = rows[0] as unknown as { completed: number; avg_rating: number; positive: number };
+  const r = rows[0] as unknown as {
+    completed: number;
+    avg_rating: number;
+    positive: number;
+    negative: number;
+  };
   const avg = Math.round((r.avg_rating ?? 0) * 10) / 10;
+  const reviewed = r.positive + r.negative;
   return {
     userId,
     averageRating: avg,
     completedTransactions: r.completed,
-    positiveReviewRate: r.completed > 0 ? Math.round((r.positive / r.completed) * 100) / 100 : 0,
+    positiveReviewRate: reviewed > 0 ? Math.round((r.positive / reviewed) * 100) / 100 : 0,
+    // FR-11 minimum indicators mencakup status verifikasi kampus.
+    campusVerified: user.verification_status === "VERIFIED",
+    accountStatus: user.account_status,
   };
 }
 

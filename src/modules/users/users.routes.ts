@@ -32,9 +32,4 @@ export const usersRoutes = new Elysia({ prefix: "/api/v1" })
     ok(await getSellerReputation(params.id)), { detail: { tags: ["Users"] } })
   .get("/users/:id/listings", async ({ params }: any) =>
     ok(await listListings({ sellerId: params.id, status: "ACTIVE", limit: 50 })),
-  { detail: { tags: ["Users"] } })
-  .get("/users/:id/reviews", async ({ params }: any) => {
-    // Placeholder Sprint 1: review list penuh mendarat di Sprint 3.
-    await getPublicUser(params.id);
-    return ok({ items: [], total: 0 });
-  }, { detail: { tags: ["Users"] } });
+  { detail: { tags: ["Users"] } });

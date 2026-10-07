@@ -7,6 +7,9 @@ import { authRoutes } from "./modules/auth/auth.routes";
 import { usersRoutes } from "./modules/users/users.routes";
 import { categoriesRoutes } from "./modules/categories/categories.routes";
 import { listingsRoutes } from "./modules/listings/listings.routes";
+import { chatsRoutes } from "./modules/chats/chats.routes";
+import { transactionsRoutes } from "./modules/transactions/transactions.routes";
+import { reviewsRoutes } from "./modules/reviews/reviews.routes";
 // Legacy Pertemuan-4 demo endpoint (GET /api/dramas) — kept until FE migrates.
 import { dramaRoutes } from "./routes/drama.routes";
 
@@ -22,6 +25,9 @@ const app: any = new Elysia()
   .use(usersRoutes)
   .use(categoriesRoutes)
   .use(listingsRoutes)
+  .use(chatsRoutes)
+  .use(transactionsRoutes)
+  .use(reviewsRoutes)
   .use(dramaRoutes);
 
 app.listen(env.PORT);
