@@ -1,6 +1,9 @@
-# KampusConnect API — Sprint 1 (Auth + Profile)
+# KampusConnect API — Sprint 1 & 2
 
-ElysiaJS + Bun + Neon PostgreSQL. Base path Sprint 1: `/api/v1`.
+ElysiaJS + Bun + Neon PostgreSQL. Base path: `/api/v1`.
+
+- **Sprint 1**: auth + profile (register/login/verify, `/me`, `/users/:id`)
+- **Sprint 2**: categories, listings CRUD, search/filter/sort + pagination, listing detail, seller reputation
 
 ## Setup
 
@@ -38,6 +41,38 @@ Hanya cek domain allowlist: `@untidar.ac.id` / `@students.untidar.ac.id`
 | GET | `/api/v1/users/:id/reviews` | — | placeholder Sprint 1 (`items: []`, penuh di Sprint 3) |
 | GET | `/api/dramas` | — | legacy Pertemuan-4, dihapus saat FE migrasi |
 
+## Endpoints (Sprint 2)
+
+| Method | Path | Auth | Keterangan |
+|---|---|---|---|
+| GET | `/api/v1/categories` | — | daftar kategori (10 seed) |
+| GET | `/api/v1/listings` | opsional | feed + search/filter/sort/pagination |
+| GET | `/api/v1/listings/:id` | opsional | detail + images + seller + `sellerReputation` + `isOwner` |
+| POST | `/api/v1/listings` | Bearer+VERIFIED | buat listing (BR-02) |
+| PATCH | `/api/v1/listings/:id` | Bearer+owner | update field & status |
+| DELETE | `/api/v1/listings/:id` | Bearer+owner | soft delete → `ARCHIVED` |
+| GET | `/api/v1/users/:id/listings` | — | listing ACTIVE milik seller |
+| GET | `/api/v1/users/:id/reputation` | — | avg rating + completed + positive rate |
+
+### Query `GET /listings`
+
+```text
+page, limit (max 50), search, category, type, condition, status,
+minPrice, maxPrice, sort, sellerId
+```
+
+- `sort`: `newest` (default) · `oldest` · `price_asc` · `price_desc` · `relevance`
+- `sort` tak dikenal → fallback `newest`; filter enum salah → `422`
+- Default hanya `status=ACTIVE`; kirim `status=SOLD|ARCHIVED|...` untuk melihat lainnya
+- Response: `{ items, page, limit, total, hasNext }`; `price` selalu `number`
+
+### Aturan bisnis yang ditegakkan
+
+- BR-02: hanya akun `VERIFIED` + `ACTIVE` boleh membuat listing (`403 NOT_VERIFIED`)
+- BR-03: listing non-`ACTIVE` tidak muncul di feed default
+- BR-08: hanya owner (atau admin) boleh PATCH/DELETE (`403 NOT_LISTING_OWNER`)
+- Transisi status tidak boleh sama dengan status saat ini (`409 STATUS_UNCHANGED`)
+
 ## Error envelope (SRS §12)
 
 ```json
@@ -46,9 +81,9 @@ Hanya cek domain allowlist: `@untidar.ac.id` / `@students.untidar.ac.id`
 
 Kode: `EMAIL_DOMAIN_NOT_ALLOWED` (400), `VALIDATION_ERROR` (422),
 `UNAUTHORIZED`/`INVALID_CREDENTIALS`/`NOT_ADMIN`/`SESSION_INVALID` (401),
-`FORBIDDEN`/`NOT_VERIFIED`/`ACCOUNT_SUSPENDED` (403),
-`NOT_FOUND`/`USER_NOT_FOUND`/`ROUTE_NOT_FOUND` (404),
-`CONFLICT`/`EMAIL_TAKEN`/`STUDENT_ID_TAKEN` (409), `RATE_LIMITED` (429).
+`FORBIDDEN`/`NOT_VERIFIED`/`ACCOUNT_SUSPENDED`/`NOT_LISTING_OWNER` (403),
+`NOT_FOUND`/`USER_NOT_FOUND`/`LISTING_NOT_FOUND`/`CATEGORY_NOT_FOUND`/`ROUTE_NOT_FOUND` (404),
+`CONFLICT`/`EMAIL_TAKEN`/`STUDENT_ID_TAKEN`/`STATUS_UNCHANGED` (409), `RATE_LIMITED` (429).
 
 ## Struktur
 
@@ -60,7 +95,9 @@ src/
 ├── shared/{errors,utils}    # AppError hierarchy, respond ok/fail, rateLimit
 ├── modules/
 │   ├── auth/{auth.routes,auth.service}.ts
-│   └── users/{users.routes,users.service}.ts
+│   ├── users/{users.routes,users.service}.ts      # profil + reputasi
+│   ├── categories/{categories.routes,categories.service}.ts
+│   └── listings/{listings.routes,listings.service}.ts
 └── routes/drama.routes.ts   # legacy, hapus saat FE migrasi
 database/
 ├── migrations/001_initial.sql   # 10 tabel MVP + index SDD §6.2 (+ .down.sql rollback)
