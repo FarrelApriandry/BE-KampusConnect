@@ -3,11 +3,15 @@
   "version": "1.0.50",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "bun run --watch src/index.ts"
+    "dev": "bun run --watch src/index.ts",
+    "migrate": "bun src/db/migrate.ts",
+    "seed": "bun src/db/seed.ts"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.2",
-    "elysia": "latest"
+    "@elysiajs/jwt": "^1.4.2",
+    "elysia": "latest",
+    "postgres": "^3.4.9"
   },
   "devDependencies": {
     "bun-types": "latest"
