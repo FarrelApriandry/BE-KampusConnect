@@ -67,6 +67,8 @@ export const listingsRoutes = new Elysia({ prefix: "/api/v1" })
   }, { detail: { tags: ["Listings"] } })
   .post("/listings", async (ctx: any) => {
     const me = await requireUser(ctx);
+    // 201 Created (tugas Pertemuan 7 Tahap 8).
+    ctx.set.status = 201;
     return ok(await createListing(me, ctx.body));
   }, { body: createListingBody, detail: { tags: ["Listings"] } })
   .patch("/listings/:id", async (ctx: any) => {

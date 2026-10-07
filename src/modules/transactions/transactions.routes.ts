@@ -46,8 +46,10 @@ export const transactionsRoutes = new Elysia({ prefix: "/api/v1" })
   )
   .post(
     "/listings/:id/transactions",
-    async (ctx: any) =>
-      ok(await createTransaction(await requireUser(ctx), ctx.params.id, ctx.body)),
+    async (ctx: any) => {
+      ctx.set.status = 201;
+      return ok(await createTransaction(await requireUser(ctx), ctx.params.id, ctx.body));
+    },
     { body: createTransactionBody, detail: { tags: ["Transactions"] } },
   )
   .patch(

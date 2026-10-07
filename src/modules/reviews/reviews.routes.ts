@@ -27,8 +27,10 @@ export const reviewsRoutes = new Elysia({ prefix: "/api/v1" })
   .use(apiPlugin)
   .post(
     "/transactions/:id/reviews",
-    async (ctx: any) =>
-      ok(await createReview(await requireUser(ctx), ctx.params.id, ctx.body)),
+    async (ctx: any) => {
+      ctx.set.status = 201;
+      return ok(await createReview(await requireUser(ctx), ctx.params.id, ctx.body));
+    },
     { body: createReviewBody, detail: { tags: ["Reviews"] } },
   )
   .get(

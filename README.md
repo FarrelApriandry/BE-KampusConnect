@@ -1,10 +1,11 @@
-# KampusConnect API — Sprint 1, 2 & 3
+# KampusConnect API — BE Lengkap (Sprint 1–4)
 
-ElysiaJS + Bun + Neon PostgreSQL. Base path: `/api/v1`.
+ElysiaJS + Bun + Neon PostgreSQL. Base path: `/api/v1`. Dokumentasi interaktif: **`/docs`** (Swagger UI).
 
 - **Sprint 1**: auth + profile (register/login/verify, `/me`, `/users/:id`)
 - **Sprint 2**: categories, listings CRUD, search/filter/sort + pagination, listing detail, seller reputation
 - **Sprint 3**: chat (FR-08), transaksi + state machine (FR-09), review (FR-10), reputasi diperluas (FR-11)
+- **Sprint 4**: report (FR-12), moderasi admin (FR-13), trust score penuh (SDD §14), Swagger, `201 Created`
 
 ## Setup
 
@@ -52,7 +53,8 @@ Hanya cek domain allowlist: `@untidar.ac.id` / `@students.untidar.ac.id`
 | PATCH | `/api/v1/listings/:id` | Bearer+owner | update field & status |
 | DELETE | `/api/v1/listings/:id` | Bearer+owner | soft delete → `ARCHIVED` |
 | GET | `/api/v1/users/:id/listings` | — | listing ACTIVE milik seller |
-| GET | `/api/v1/users/:id/reputation` | — | avg rating + completed + positive rate + `campusVerified` |
+| GET | `/api/v1/users/:id/reputation` | — | indikator FR-11 + trust score + `breakdown` |
+| GET | `/api/v1/users/:id/trust-score` | — | trust score ringkas (SDD §14) |
 
 ## Endpoints (Sprint 3)
 
@@ -97,6 +99,73 @@ ACCEPTED → CANCELLED
 - BR-10: akun `SUSPENDED` ditolak di semua operasi marketplace (`403 ACCOUNT_SUSPENDED`)
 - Chat: non-partisipan tidak bisa baca/tulis (`403 NOT_CHAT_PARTICIPANT`)
 
+## Endpoints (Sprint 4)
+
+| Method | Path | Auth | Keterangan |
+|---|---|---|---|
+| GET | `/api/v1/reports` | Bearer | laporan yang dibuat user sendiri |
+| GET | `/api/v1/reports/:id` | pelapor/admin | detail laporan |
+| POST | `/api/v1/reports` | Bearer+VERIFIED | buat laporan `{ listingId? , targetUserId?, reason, description? }` |
+| GET | `/api/v1/admin/reports` | ADMIN | antrean moderasi + `summary` per status |
+| GET | `/api/v1/admin/reports/:id` | ADMIN | detail + riwayat aksi moderasi |
+| PATCH | `/api/v1/admin/reports/:id/status` | ADMIN | `{ status, note? }` — transisi tervalidasi |
+| POST | `/api/v1/admin/reports/:id/actions` | ADMIN | `{ action, note? }` — WARN / HIDE_LISTING / SUSPEND_USER / DISMISS / OTHER |
+| GET | `/api/v1/admin/actions` | ADMIN | riwayat aksi moderasi (FR-15 auditability) |
+| POST | `/api/v1/admin/users/:id/warn` | ADMIN | teguran tanpa laporan |
+| PATCH | `/api/v1/admin/users/:id/status` | ADMIN | `{ status: ACTIVE\|SUSPENDED, note? }` |
+
+### Reason & status laporan (FR-12 / FR-13)
+
+```text
+reason : SCAM · MISLEADING · PROHIBITED_ITEM · SPAM · HARASSMENT · OTHER
+status : OPEN → UNDER_REVIEW → RESOLVED | DISMISSED
+```
+
+- `OPEN`/`UNDER_REVIEW` boleh langsung ke `RESOLVED`/`DISMISSED`; status akhir tidak bisa dibalik
+- Transisi di luar itu → `409 INVALID_REPORT_TRANSITION`
+- Laporan tertutup tidak bisa ditindak lagi → `409 REPORT_ALREADY_CLOSED`
+- BR-09: melaporkan listing **tidak** mengubah statusnya — hanya admin yang memutuskan
+- Aksi `HIDE_LISTING` → listing jadi `ARCHIVED`; `SUSPEND_USER` → akun jadi `SUSPENDED`
+- `WARN`/`OTHER` memindahkan laporan ke `UNDER_REVIEW`; `HIDE_LISTING`/`SUSPEND_USER`/`DISMISS` menutupnya
+- Admin tidak bisa menangguhkan/menegur dirinya sendiri (`409 CANNOT_MODIFY_SELF`)
+- Setiap aksi tercatat di `moderation_actions` (actor + timestamp + target) — FR-15
+
+### Trust score (SDD §14)
+
+```text
+trustScore = verificationWeight + transactionWeight + reviewWeight + accountAgeWeight
+           - cancellationPenalty - moderationPenalty      (dibulatkan ke 0..100)
+```
+
+| Komponen | Bobot | Catatan |
+|---|---:|---|
+| Akun terverifikasi | +20 | `verification_status = VERIFIED` |
+| Transaksi `COMPLETED` (seller) | +4 each | maksimum +40 |
+| Review positif (rating ≥ 4) | +3 each | maksimum +30 |
+| Umur akun | +1/bulan | maksimum +10 |
+| Transaksi `CANCELLED` | −2 each | maksimum −10 |
+| Aksi moderasi (WARN/SUSPEND) | −10 each | maksimum −30 |
+
+Bobot **configurable** lewat env (`TRUST_W_VERIFIED`, `TRUST_W_PER_TXN`, …) —
+lihat `src/config/trust.ts`. Label: `BARU` < 20 ≤ `RENDAH` < 40 ≤ `CUKUP` < 60 ≤ `TERPERCAYA` < 80 ≤ `SANGAT_TERPERCAYA`.
+
+## Status HTTP
+
+Semua operasi pembuatan resource mengembalikan **`201 Created`**:
+`POST /auth/register`, `/listings`, `/chats`, `/chats/:id/messages`,
+`/listings/:id/transactions`, `/transactions/:id/reviews`, `/reports`.
+
+## Testing
+
+```bash
+PORT=3001 bun src/index.ts &   # server harus hidup
+bun tests/run-all.sh           # 4 suite, reset DB otomatis sebelum tiap suite
+```
+
+Suite: `regression.smoke.ts` (Sprint 1–3), `sprint3.smoke.sh` + `sprint3.smoke.ts`,
+`sprint4.smoke.ts`. Total 227 assertion. `tests/reset-test-data.ts` mengembalikan
+DB ke kondisi bersih (admin + 10 kategori).
+
 ### Query `GET /listings`
 
 ```text
@@ -126,32 +195,38 @@ Kode: `EMAIL_DOMAIN_NOT_ALLOWED` (400), `VALIDATION_ERROR` (422),
 `UNAUTHORIZED`/`INVALID_CREDENTIALS`/`NOT_ADMIN`/`SESSION_INVALID` (401),
 `FORBIDDEN`/`NOT_VERIFIED`/`ACCOUNT_SUSPENDED`/`NOT_LISTING_OWNER`/
 `NOT_CHAT_PARTICIPANT`/`NOT_TRANSACTION_PARTICIPANT`/`SELLER_ONLY`/
-`REVIEWER_NOT_BUYER`/`ADMIN_ONLY` (403),
+`REVIEWER_NOT_BUYER`/`NOT_REPORT_OWNER`/`ADMIN_ONLY` (403),
 `NOT_FOUND`/`USER_NOT_FOUND`/`LISTING_NOT_FOUND`/`CATEGORY_NOT_FOUND`/
-`CHAT_NOT_FOUND`/`TRANSACTION_NOT_FOUND`/`REVIEW_NOT_FOUND`/`ROUTE_NOT_FOUND` (404),
+`CHAT_NOT_FOUND`/`TRANSACTION_NOT_FOUND`/`REVIEW_NOT_FOUND`/`REPORT_NOT_FOUND`/
+`ROUTE_NOT_FOUND` (404),
 `CONFLICT`/`EMAIL_TAKEN`/`STUDENT_ID_TAKEN`/`STATUS_UNCHANGED`/
-`CANNOT_CHAT_SELF`/`CANNOT_BUY_OWN_LISTING`/`LISTING_NOT_CHATTABLE`/
-`LISTING_NOT_TRANSACTABLE`/`INVALID_STATUS_TRANSITION`/
-`TRANSACTION_NOT_COMPLETED`/`REVIEW_ALREADY_EXISTS`/`SELLER_NOT_ACTIVE` (409),
-`RATE_LIMITED` (429).
+`CANNOT_CHAT_SELF`/`CANNOT_BUY_OWN_LISTING`/`CANNOT_REPORT_SELF`/
+`CANNOT_MODIFY_SELF`/`CANNOT_WARN_SELF`/`CANNOT_SUSPEND_ADMIN`/
+`LISTING_NOT_CHATTABLE`/`LISTING_NOT_TRANSACTABLE`/`INVALID_STATUS_TRANSITION`/
+`INVALID_REPORT_TRANSITION`/`REPORT_ALREADY_CLOSED`/`NO_LISTING_TARGET`/
+`NO_USER_TARGET`/`TRANSACTION_NOT_COMPLETED`/`REVIEW_ALREADY_EXISTS`/
+`SELLER_NOT_ACTIVE` (409), `RATE_LIMITED` (429).
 
 ## Struktur
 
 ```text
 src/
-├── config/env.ts            # validasi env wajib
+├── config/{env,trust}.ts    # env wajib + bobot trust score (SDD §14)
 ├── db/{client,migrate,seed}.ts
 ├── plugins/{api,error-handler}.ts  # JWT, mapError (.onError per router), requestId
 ├── shared/{errors,utils}    # AppError hierarchy, respond ok/fail, rateLimit
 ├── modules/
 │   ├── auth/{auth.routes,auth.service}.ts
-│   ├── users/{users.routes,users.service}.ts      # profil + reputasi (FR-11)
+│   ├── users/{users.routes,users.service}.ts      # profil + reputasi + trust score
 │   ├── categories/{categories.routes,categories.service}.ts
 │   ├── listings/{listings.routes,listings.service}.ts
 │   ├── chats/{chats.routes,chats.service}.ts      # FR-08
 │   ├── transactions/{transactions.routes,transactions.service}.ts  # FR-09
-│   └── reviews/{reviews.routes,reviews.service}.ts                 # FR-10
+│   ├── reviews/{reviews.routes,reviews.service}.ts                 # FR-10
+│   ├── reports/{reports.routes,reports.service}.ts                 # FR-12
+│   └── admin/{admin.routes,admin.service}.ts                       # FR-13
 └── routes/drama.routes.ts   # legacy, hapus saat FE migrasi
+tests/                       # smoke test + runner (bun tests/run-all.sh)
 database/
 ├── migrations/001_initial.sql   # 10 tabel MVP + index SDD §6.2 (+ .down.sql rollback)
 └── seeds/{001_categories,002_admin}.sql

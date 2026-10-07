@@ -51,13 +51,13 @@ echo
 echo "########## FR-08 CHAT ##########"
 echo "-- 1. buyer buka room dari listing --"
 C=$(code -X POST $B/chats -H "Authorization: Bearer $TB" -H 'Content-Type: application/json' -d "{\"listingId\":\"$LID\"}")
-check "POST /chats" 200 "$C"
+check "POST /chats" 201 "$C"
 RID=$(jqget "['data']['id']" < /tmp/kc_body.json)
 echo "  roomId: $RID"
 
 echo "-- 2. idempoten: buka lagi -> room SAMA (UNIQUE listing+buyer) --"
 C=$(code -X POST $B/chats -H "Authorization: Bearer $TB" -H 'Content-Type: application/json' -d "{\"listingId\":\"$LID\"}")
-check "POST /chats ulang" 200 "$C"
+check "POST /chats ulang" 201 "$C"
 check "roomId sama" "$RID" "$(jqget "['data']['id']" < /tmp/kc_body.json)"
 
 echo "-- 3. seller TIDAK bisa chat listing sendiri --"
@@ -67,9 +67,9 @@ check "  code CANNOT_CHAT_SELF" CANNOT_CHAT_SELF "$(jqget "['error']['code']" < 
 
 echo "-- 4. buyer kirim pesan --"
 C=$(code -X POST $B/chats/$RID/messages -H "Authorization: Bearer $TB" -H 'Content-Type: application/json' -d '{"message":"Halo, masih ada?"}')
-check "POST pesan" 200 "$C"
+check "POST pesan" 201 "$C"
 C=$(code -X POST $B/chats/$RID/messages -H "Authorization: Bearer $TS" -H 'Content-Type: application/json' -d '{"message":"Masih, silakan"}')
-check "POST pesan (seller balas)" 200 "$C"
+check "POST pesan (seller balas)" 201 "$C"
 
 echo "-- 5. riwayat pesan urut ASC --"
 C=$(code "$B/chats/$RID/messages?page=1&limit=30" -H "Authorization: Bearer $TB")
@@ -106,7 +106,7 @@ echo
 echo "########## FR-09 TRANSAKSI ##########"
 echo "-- 10. buyer buat transaction request --"
 C=$(code -X POST $B/listings/$LID/transactions -H "Authorization: Bearer $TB" -H 'Content-Type: application/json' -d '{"agreedPrice":43000}')
-check "POST /listings/:id/transactions" 200 "$C"
+check "POST /listings/:id/transactions" 201 "$C"
 TX=$(jqget "['data']['id']" < /tmp/kc_body.json)
 check "  status PENDING" PENDING "$(jqget "['data']['status']" < /tmp/kc_body.json)"
 check "  agreed_price number 43000" 43000 "$(jqget "['data']['agreed_price']" < /tmp/kc_body.json)"
@@ -181,7 +181,7 @@ echo
 echo "########## FR-10 REVIEW ##########"
 echo "-- 21. buyer review seller --"
 C=$(code -X POST $B/transactions/$TX/reviews -H "Authorization: Bearer $TB" -H 'Content-Type: application/json' -d '{"rating":5,"comment":"Barang sesuai, seller ramah"}')
-check "POST review" 200 "$C"
+check "POST review" 201 "$C"
 check "  rating 5" 5 "$(jqget "['data']['rating']" < /tmp/kc_body.json)"
 RVID=$(jqget "['data']['id']" < /tmp/kc_body.json)
 

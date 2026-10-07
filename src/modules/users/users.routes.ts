@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { apiPlugin, requireUser } from "../../plugins/api";
 import { mapError } from "../../plugins/error-handler";
 import { ok } from "../../shared/utils/respond";
-import { getPublicUser, getSellerReputation, patchMe } from "./users.service";
+import { getPublicUser, getSellerReputation, getTrustScore, patchMe } from "./users.service";
 import { listListings } from "../listings/listings.service";
 
 const patchMeBody = t.Object({
@@ -30,6 +30,8 @@ export const usersRoutes = new Elysia({ prefix: "/api/v1" })
   })
   .get("/users/:id/reputation", async ({ params }: any) =>
     ok(await getSellerReputation(params.id)), { detail: { tags: ["Users"] } })
+  .get("/users/:id/trust-score", async ({ params }: any) =>
+    ok(await getTrustScore(params.id)), { detail: { tags: ["Users"] } })
   .get("/users/:id/listings", async ({ params }: any) =>
     ok(await listListings({ sellerId: params.id, status: "ACTIVE", limit: 50 })),
   { detail: { tags: ["Users"] } });

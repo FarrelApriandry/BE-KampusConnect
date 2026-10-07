@@ -35,7 +35,10 @@ export const chatsRoutes = new Elysia({ prefix: "/api/v1" })
   })
   .post(
     "/chats",
-    async (ctx: any) => ok(await openRoom(await requireUser(ctx), ctx.body.listingId)),
+    async (ctx: any) => {
+      ctx.set.status = 201;
+      return ok(await openRoom(await requireUser(ctx), ctx.body.listingId));
+    },
     { body: openRoomBody, detail: { tags: ["Chats"] } },
   )
   .get(
@@ -52,7 +55,9 @@ export const chatsRoutes = new Elysia({ prefix: "/api/v1" })
   .use(rateLimit({ windowMs: 60_000, max: 120 }))
   .post(
     "/chats/:roomId/messages",
-    async (ctx: any) =>
-      ok(await sendMessage(await requireUser(ctx), ctx.params.roomId, ctx.body.message)),
+    async (ctx: any) => {
+      ctx.set.status = 201;
+      return ok(await sendMessage(await requireUser(ctx), ctx.params.roomId, ctx.body.message));
+    },
     { body: sendMessageBody, detail: { tags: ["Chats"] } },
   );

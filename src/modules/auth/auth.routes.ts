@@ -27,6 +27,8 @@ export const authRoutes = new Elysia({ prefix: "/api/v1/auth" })
   .use(rateLimit({ windowMs: 60_000, max: 30 }))
   .post("/register", async (ctx: any) => {
     const result = await register(ctx.body, (payload) => (ctx.jwt as any).sign(payload));
+    // 201 Created — akun baru terbentuk (tugas Pertemuan 7 Tahap 8).
+    ctx.set.status = 201;
     return ok(result);
   }, { body: registerBody, detail: { tags: ["Auth"] } })
   .post("/login", async (ctx: any) => {
