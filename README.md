@@ -20,6 +20,32 @@ bun run dev            # PORT dari .env (default 3000)
 Admin default (seed `002_admin.sql`): `admin@untidar.ac.id` / `Admin123!`
 — ganti password setelah login pertama.
 
+## Deploy ke Vercel
+
+Elysia terdeteksi otomatis oleh Vercel (zero config) — cukup `export default app`
+di `src/index.ts`. Tiga hal yang wajib, semuanya sudah terpasang:
+
+1. **`export default app`** — Vercel tidak mendukung `app.listen()`. Blok listen
+   di-guard `if (!process.env.VERCEL)`, jadi `bun run dev` lokal tetap jalan.
+2. **`vercel.json` → `bunVersion: "1.4.x"`** — tanpa ini fungsi jalan di Node.js
+   dan `Bun.password` (auth) `undefined` → register & login crash.
+3. **Env vars** di dashboard Vercel (Production + Preview): `DATABASE_URL`,
+   `JWT_SECRET`, `NODE_ENV=production`. `src/config/env.ts` melempar error saat
+   import bila keduanya kosong → seluruh app gagal start, bukan satu endpoint.
+
+Setelah deploy, cek berurutan: `/` → `/health` → `/api/v1/categories` → `/docs`.
+
+Catatan runtime:
+
+- **`prepare: false`** di `src/db/client.ts` — Neon pooler memakai PgBouncer
+  transaction mode, prepared statement bernama bisa "hilang" di backend berbeda.
+  Tanpa ini muncul `prepared statement does not exist` secara intermiten.
+- **`max: 3` saat serverless** — tiap instance fungsi punya pool sendiri.
+- Migrasi & seed **tidak** jalan otomatis di Vercel; jalankan dari laptop
+  (`bun run migrate && bun run seed`) — DB Neon-nya sudah sama.
+- Vercel Hobby: maksimum 12 function per deployment. Preset Bun mendeteksi satu
+  server (`Bun.serve`), jadi ini tidak terpicu.
+
 ## Verifikasi kampus (keputusan Sprint 1)
 
 Hanya cek domain allowlist: `@untidar.ac.id` / `@students.untidar.ac.id`

@@ -59,7 +59,14 @@ const app: any = new Elysia()
   .use(adminRoutes)
   .use(dramaRoutes);
 
-app.listen(env.PORT);
+// Vercel tidak mendukung app.listen(); ia membaca instance Elysia lewat default
+// export ini dan merutekan request ke Vercel Function. Jangan hapus export-nya.
+export default app;
 
-console.log(`🦊 KampusConnect API running at ${app.server?.hostname}:${app.server?.port}`);
-console.log(`📚 API docs: http://localhost:${app.server?.port}/docs`);
+// Di luar Vercel (bun run dev / bun src/index.ts) tetap butuh server yang listen.
+// Vercel men-set env VERCEL=1, jadi blok ini otomatis dilewati saat deployed.
+if (!process.env.VERCEL) {
+  app.listen(env.PORT);
+  console.log(`🦊 KampusConnect API running at http://localhost:${env.PORT}`);
+  console.log(`📚 API docs: http://localhost:${env.PORT}/docs`);
+}

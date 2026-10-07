@@ -12,9 +12,18 @@ try {
   /* Node < 17 — abaikan */
 }
 
+// Di serverless (Vercel) setiap instance fungsi punya pool sendiri, jadi `max`
+// kecil supaya banyak instance tidak menghabiskan koneksi Neon.
+const IS_SERVERLESS = Boolean(process.env.VERCEL);
+
 export const sql = postgres(env.DATABASE_URL, {
-  max: 10,
+  max: IS_SERVERLESS ? 3 : 10,
   idle_timeout: 20,
+  // Neon pooler memakai PgBouncer transaction mode: satu koneksi logis bisa
+  // mendarat di backend Postgres yang berbeda tiap transaksi. Prepared statement
+  // bernama (default postgres.js) jadi tidak konsisten → "prepared statement
+  // does not exist" secara intermiten. Matikan supaya aman.
+  prepare: false,
   // Neon cold-start dari Indonesia bisa 3-15 detik (pernah >30 detik).
   // Timeout longgar agar /health dan request pertama tidak langsung gagal.
   connect_timeout: 60,

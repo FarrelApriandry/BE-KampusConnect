@@ -1,0 +1,8 @@
+# Jangan unggah artefak lokal ke bundle Vercel Function.
+.env
+.env.*
+node_modules
+.git
+.vercel
+tests
+*.log
